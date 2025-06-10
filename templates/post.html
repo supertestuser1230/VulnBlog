@@ -7,18 +7,17 @@
     <div class="col-md-8">
         <article class="card">
             {% if post.image_path %}
-                <img src="{{ url_for('uploaded_file', filename=post.image_path) }}" class="card-img-top" alt="Изображение поста">
+                <img src="{{ url_for('uploaded_file', filename=post.image_path) | e }}" class="card-img-top" alt="Изображение поста">
             {% endif %}
             <div class="card-body">
-                <h1 class="card-title">{{ post.title }}</h1>
+                <h1 class="card-title">{{ post.title | e }}</h1>
                 <div class="mb-3">
                     <small class="text-muted">
-                        <i class="fas fa-user"></i> {{ post.username }}
-                        <i class="fas fa-calendar ms-3"></i> {{ post.created_at }}
+                        <i class="fas fa-user"></i> {{ post.username | e }}
+                        <i class="fas fa-calendar ms-3"></i> {{ post.created_at | e }}
                     </small>
                 </div>
-                <!-- XSS - контент не экранируется -->
-                <div class="card-text">{{ post.content|safe }}</div>
+                <div class="card-text">{{ post.content | e }}</div> <!-- Удален |safe -->
             </div>
         </article>
 
@@ -27,34 +26,51 @@
                 <h5><i class="fas fa-comments"></i> Комментарии ({{ comments|length }})</h5>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('add_comment', post_id=post.id) }}" class="mb-4">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <form method="POST" action="{{ url_for('add_comment', post_id=post.id) }}" class="mb-4" novalidate>
+                    {{ form.hidden_tag() }} <!-- Добавляет CSRF-токен -->
                     <div class="mb-3">
                         <label for="author_name" class="form-label">
                             <i class="fas fa-user"></i> Ваше имя
                         </label>
-                        <input type="text" class="form-control" id="author_name" name="author_name" 
-                               value="{{ session.username if session.username else '' }}" required>
+                        {{ form.author_name(class="form-control", id="author_name", value=session.username if session.username else '', required=True) }}
+                        {% if form.author_name.errors %}
+                            {% for error in form.author_name.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
                     </div>
                     <div class="mb-3">
                         <label for="content" class="form-label">
                             <i class="fas fa-comment"></i> Комментарий
                         </label>
-                        <textarea class="form-control" id="content" name="content" rows="3" 
-                                  placeholder="Напишите ваш комментарий..." required></textarea>
+                        {{ form.content(class="form-control", id="content", rows=3, placeholder="Напишите ваш комментарий...", required=True) }}
+                        {% if form.content.errors %}
+                            {% for error in form.content.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
                     </div>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-paper-plane"></i> Отправить комментарий
-                    </button>
+                    {{ form.submit(class="btn btn-primary") }}
                 </form>
                 {% if comments %}
                     {% for comment in comments %}
                         <div class="border-bottom pb-3 mb-3">
                             <div class="d-flex justify-content-between align-items-start">
-                                <strong>{{ comment.author_name }}</strong>
-                                <small class="text-muted">{{ comment.created_at }}</small>
+                                <strong>{{ comment.author_name | e }}</strong>
+                                <small class="text-muted">{{ comment.created_at | e }}</small>
                             </div>
-                            <!-- XSS - комментарии не экранируются -->
-                            <div class="mt-2">{{ comment.content|safe }}</div>
+                            <div class="mt-2">{{ comment.content | e }}</div> <!-- Удален |safe -->
                         </div>
                     {% endfor %}
                 {% else %}
@@ -77,12 +93,15 @@
                     <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
                         <i class="fas fa-arrow-left"></i> Назад к постам
                     </a>
-                    {% if session.user_id %}
-                        <a href="{{ url_for('delete_post', post_id=post.id) }}" class="btn btn-outline-danger"
-                           onclick="return confirm('Вы уверены, что хотите удалить этот пост?')">
-                            <i class="fas fa-trash"></i> Удалить пост
-                        </a>
-                    {% endif %}
+{% if session.user_id %}
+    <form action="{{ url_for('delete_post', post_id=post.id) }}" method="POST" class="d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-danger">
+            <i class="fas fa-trash"></i> Удалить пост
+        </button>
+    </form>
+{% endif %}
+
                 </div>
             </div>
         </div>

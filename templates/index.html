@@ -36,12 +36,16 @@
                                 <a href="{{ url_for('view_post', post_id=post.id) }}" class="btn btn-outline-primary btn-sm">
                                     <i class="fas fa-eye"></i> Читать далее
                                 </a>
-                                {% if session.user_id %}
-                                    <a href="{{ url_for('delete_post', post_id=post.id) }}" class="btn btn-outline-danger btn-sm" 
-                                       onclick="return confirm('Вы уверены, что хотите удалить этот пост?')">
-                                        <i class="fas fa-trash"></i> Удалить
-                                    </a>
-                                {% endif %}
+{% if session.user_id %}
+    <form action="{{ url_for('delete_post', post_id=post.id) }}" method="POST" class="d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-danger">
+            <i class="fas fa-trash"></i> Удалить пост
+        </button>
+    </form>
+{% endif %}
+
+
                             </div>
                         </div>
                     </div>

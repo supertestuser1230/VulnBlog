@@ -1,29 +1,33 @@
 import os
-import sqlite3
 import re
-from flask import render_template, request, redirect, url_for, session, flash, send_from_directory, abort
+import secrets
+import sqlite3
+import logging
+from flask import render_template, request, redirect, url_for, session, flash, send_from_directory, abort, jsonify
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 from flask_wtf.csrf import CSRFProtect
 from app import app
 from models import get_db_connection, User, Post, Comment
+from forms import LoginForm, RegisterForm, CommentForm, PostForm
+import bleach
+from time import *
 
-# Включение защиты CSRF
+logging.basicConfig(filename='app.log', level=logging.ERROR)
+
 csrf = CSRFProtect(app)
 
-# Настройка загрузки файлов
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 UPLOAD_FOLDER = app.config['UPLOAD_FOLDER']
-MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5MB limit
+MAX_CONTENT_LENGTH = 5 * 1024 * 1024
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
 def allowed_file(filename):
-    """Проверка допустимого расширения файла."""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+    return ext in ALLOWED_EXTENSIONS and not re.search(pattern=r'[^\w.\-]', string=filename)
 
 def validate_input(input_str, max_length, pattern=None):
-    """Валидация входных данных для предотвращения инъекций."""
-    if not input_str or len(input_str) > max_length or len(input_str.strip()) == 0:
+    if not input_str or len(input_str.strip()) == 0 or len(input_str) > max_length:
         return False
     if pattern and not re.match(pattern, input_str):
         return False
@@ -33,175 +37,143 @@ def validate_input(input_str, max_length, pattern=None):
 
 @app.route('/')
 def index():
-    """Главная страница с отображением всех постов."""
     try:
         posts = Post.get_all()
         return render_template('index.html', posts=posts)
-    except sqlite3.Error:
-        flash('Ошибка загрузки постов.', 'error')
+    except sqlite3.Error as e:
+        logging.error(f'Index error: {e}')
+        flash('Ошибка загрузки постов.', 'danger')
         return render_template('index.html', posts=[])
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Вход в систему с безопасной проверкой учетных данных."""
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
+    login_attempts = session.get('login_attempts', {'count': 0, 'last_attempt': 0})
+    if login_attempts['count'] >= 5 and time() - login_attempts['last_attempt'] < 300:
+        flash('Слишком много попыток входа. Попробуйте снова через 5 минут.', 'danger')
+        return render_template('login.html', form=LoginForm())
 
-        # Валидация входных данных
-        if not validate_input(username, 50, r'^[\w]+$'):
-            flash('Недопустимое имя пользователя!', 'error')
-            return render_template('login.html')
-
+    form = LoginForm()
+    if form.validate_on_submit():
         try:
-            user = User.get_by_username(username)
-            if user and check_password_hash(user.password_hash, password):
-                session.permanent = True  # Сессия сохраняется
+            user = User.get_by_username(form.username.data)
+            if user and check_password_hash(user.password_hash, form.password.data):
+                session.clear()
+                session.permanent = True
                 session['user_id'] = user.id
                 session['username'] = user.username
                 session['is_admin'] = user.is_admin
+                session['login_attempts'] = {'count': 0, 'last_attempt': 0}
                 flash('Вход выполнен успешно!', 'success')
                 return redirect(url_for('index'))
             else:
-                flash('Неверные учетные данные!', 'error')
-        except sqlite3.Error:
-            flash('Ошибка базы данных.', 'error')
-        
-        return render_template('login.html')
-    
-    return render_template('login.html')
+                login_attempts['count'] += 1
+                login_attempts['last_attempt'] = time()
+                session['login_attempts'] = login_attempts
+                flash('Неверные учетные данные!', 'danger')
+        except sqlite3.Error as e:
+            logging.error(f'Login error: {e}')
+            flash(f'Ошибка базы данных: {e}', 'danger')
+    return render_template('login.html', form=form)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    """Регистрация нового пользователя с усиленной валидацией."""
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        email = request.form.get('email', '').strip()
-        password = request.form.get('password', '')
-
-        # Валидация входных данных
-        if not validate_input(username, 50, r'^[\w]+$'):
-            flash('Недопустимое имя пользователя!', 'error')
-            return render_template('register.html')
-        if not validate_input(email, 100, r'^[\w\.-]+@[\w\.-]+\.\w+$'):
-            flash('Недопустимый email!', 'error')
-            return render_template('register.html')
-        if len(password) < 8:
-            flash('Пароль должен содержать не менее 8 символов!', 'error')
-            return render_template('register.html')
-
-        user = User.create(username, email, password)
+    form = RegisterForm()
+    if form.validate_on_submit():
+        user = User.create(form.username.data, form.email.data, form.password.data)
         if user:
             flash('Регистрация прошла успешно! Теперь вы можете войти.', 'success')
             return redirect(url_for('login'))
         else:
-            flash('Пользователь с таким именем или email уже существует!', 'error')
-    
-    return render_template('register.html')
+            flash('Пользователь с таким именем или email уже существует!', 'danger')
+    return render_template('register.html', form=form)
 
 @app.route('/logout')
 def logout():
-    """Выход из системы с очисткой сессии."""
     session.clear()
     flash('Вы вышли из системы.', 'info')
     return redirect(url_for('index'))
 
 @app.route('/post/<int:post_id>')
 def view_post(post_id):
-    """Просмотр поста и связанных комментариев."""
     if not isinstance(post_id, int) or post_id < 1:
-        flash('Недопустимый идентификатор поста!', 'error')
+        flash('Недопустимый идентификатор поста!', 'danger')
         return redirect(url_for('index'))
 
     try:
         post = Post.get_by_id(post_id)
         if not post:
-            flash('Пост не найден!', 'error')
+            flash('Пост не найден!', 'danger')
             return redirect(url_for('index'))
-        
+
         comments = Comment.get_by_post_id(post_id)
-        return render_template('post.html', post=post, comments=comments)
-    except sqlite3.Error:
-        flash('Ошибка загрузки поста.', 'error')
+        return render_template('post.html', post=post, comments=comments, form=CommentForm())
+    except sqlite3.Error as e:
+        logging.error(f'View post error: {e}')
+        flash('Ошибка загрузки поста.', 'danger')
         return redirect(url_for('index'))
 
 @app.route('/post/<int:post_id>/comment', methods=['POST'])
-@csrf.exempt  # В реальном приложении включите CSRF в шаблоне
 def add_comment(post_id):
-    """Добавление комментария к посту."""
     if not isinstance(post_id, int) or post_id < 1:
-        flash('Недопустимый идентификатор поста!', 'error')
+        flash('Недопустимый идентификатор поста!', 'danger')
         return redirect(url_for('index'))
 
-    author_name = request.form.get('author_name', '').strip()
-    content = request.form.get('content', '').strip()
-
-    if not validate_input(author_name, 50, r'^[\w\s]+$'):
-        flash('Недопустимое имя автора!', 'error')
-        return redirect(url_for('view_post', post_id=post_id))
-    if not validate_input(content, 1000):
-        flash('Недопустимый комментарий!', 'error')
-        return redirect(url_for('view_post', post_id=post_id))
-
-    comment_id = Comment.create(post_id, author_name, content)
-    if comment_id:
-        flash('Комментарий добавлен!', 'success')
+    form = CommentForm()
+    if form.validate_on_submit():
+        sanitized_author_name = bleach.clean(form.author_name.data, tags=[], strip=True)
+        sanitized_content = bleach.clean(form.content.data, tags=['p', 'br', 'strong', 'em'], strip=True)
+        comment_id = Comment.create(post_id, sanitized_author_name, sanitized_content)
+        if comment_id:
+            flash('Комментарий добавлен!', 'success')
+        else:
+            flash('Ошибка добавления комментария.', 'danger')
     else:
-        flash('Ошибка добавления комментария.', 'error')
-    
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f'Ошибка в поле {field}: {error}', 'danger')
     return redirect(url_for('view_post', post_id=post_id))
 
 @app.route('/create_post', methods=['GET', 'POST'])
 def create_post():
-    """Создание нового поста с безопасной загрузкой файлов."""
     if 'user_id' not in session:
-        flash('Необходимо войти в систему для создания постов!', 'error')
+        flash('Необходимо войти в систему для создания постов!', 'danger')
         return redirect(url_for('login'))
 
-    if request.method == 'POST':
-        title = request.form.get('title', '').strip()
-        content = request.form.get('content', '').strip()
-
-        if not validate_input(title, 200):
-            flash('Недопустимый заголовок!', 'error')
-            return render_template('create_post.html')
-        if not validate_input(content, 10000):
-            flash('Недопустимое содержимое!', 'error')
-            return render_template('create_post.html')
-
+    form = PostForm()
+    if form.validate_on_submit():
+        sanitized_title = bleach.clean(form.title.data, tags=[], strip=True)
+        sanitized_content = bleach.clean(form.content.data, tags=['p', 'br', 'strong', 'em'], strip=True)
         image_path = None
-        if 'image' in request.files:
-            file = request.files['image']
-            if file and file.filename and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                unique_filename = f"{secrets.token_hex(8)}_{filename}"  # Уникальное имя файла
-                file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
-                try:
-                    file.save(file_path)
-                    image_path = unique_filename
-                except Exception:
-                    flash('Ошибка загрузки изображения.', 'error')
-                    return render_template('create_post.html')
-            elif file.filename:
-                flash('Недопустимый формат изображения!', 'error')
-                return render_template('create_post.html')
+#        if form.image.data:
+#            file = form.image.data
+#            if allowed_file(file.filename):
+#                filename = secure_filename(file.filename)
+#                unique_filename = f"{secrets.token_hex(8)}_{filename}"
+#                file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+#                try:
+#                    file.save(file_path)
+#                    image_path = unique_filename
+#                except Exception as e:
+#                    flash(f'Ошибка загрузки изображения: {e}', 'danger')
+#                    return render_template('create_post.html', form=form)
+#            else:
+#                flash('Недопустимый формат изображения!', 'danger')
+#                return render_template('create_post.html', form=form)
 
-        post_id = Post.create(title, content, session['user_id'], image_path)
+        post_id = Post.create(sanitized_title, sanitized_content, session['user_id'], image_path)
         if post_id:
             flash('Пост создан успешно!', 'success')
             return redirect(url_for('index'))
         else:
-            flash('Ошибка создания поста.', 'error')
-
-    return render_template('create_post.html')
+            flash('Ошибка создания поста.', 'danger')
+    return render_template('create_post.html', form=form)
 
 @app.route('/search')
 def search():
-    """Поиск постов с безопасной обработкой запросов."""
     query = request.args.get('q', '').strip()
     posts = []
-
     if query and validate_input(query, 100):
+        sanitized_query = bleach.clean(query, tags=[], strip=True)
         try:
             conn = get_db_connection()
             posts = conn.execute('''
@@ -210,73 +182,85 @@ def search():
                 JOIN users u ON p.author_id = u.id
                 WHERE p.title LIKE ? OR p.content LIKE ?
                 ORDER BY p.created_at DESC
-            ''', (f'%{query}%', f'%{query}%')).fetchall()
+            ''', (f'%{sanitized_query}%', f'%{sanitized_query}%')).fetchall()
             conn.close()
-        except sqlite3.Error:
-            flash('Ошибка поиска.', 'error')
-
+        except sqlite3.Error as e:
+            logging.error(f'Search error: {e}')
+            flash('Ошибка поиска.', 'danger')
     return render_template('search.html', posts=posts, query=query)
 
 @app.route('/admin')
 def admin():
-    """Панель администратора с проверкой доступа."""
     if 'user_id' not in session:
-        flash('Доступ запрещен!', 'error')
+        flash('Доступ запрещен!', 'danger')
         return redirect(url_for('login'))
     if not session.get('is_admin'):
-        flash('Недостаточно прав доступа!', 'error')
+        flash('Недостаточно прав доступа!', 'danger')
         return redirect(url_for('index'))
 
     try:
         conn = get_db_connection()
-        users = conn.execute('SELECT * FROM users ORDER BY created_at DESC').fetchall()
-        posts = conn.execute('SELECT * FROM posts ORDER BY created_at DESC').fetchall()
-        comments = conn.execute('SELECT * FROM comments ORDER BY created_at DESC').fetchall()
+        page = request.args.get('page', 1, type=int)
+        per_page = 10
+        offset = (page - 1) * per_page
+        users = conn.execute('SELECT * FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?', (per_page, offset)).fetchall()
+        posts = conn.execute('SELECT * FROM posts ORDER BY created_at DESC LIMIT ? OFFSET ?', (per_page, offset)).fetchall()
+        comments = conn.execute('SELECT * FROM comments ORDER BY created_at DESC LIMIT ? OFFSET ?', (per_page, offset)).fetchall()
         conn.close()
-        return render_template('admin.html', users=users, posts=posts, comments=comments)
-    except sqlite3.Error:
-        flash('Ошибка загрузки данных.', 'error')
+        return render_template('admin.html', users=users, posts=posts, comments=comments, page=page, per_page=per_page)
+    except sqlite3.Error as e:
+        logging.error(f'Admin error: {e}')
+        flash('Ошибка загрузки данных.', 'danger')
         return redirect(url_for('index'))
 
-@app.route('/uploads/<filename>')
+@app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
-    """Безопасная отдача загруженных файлов."""
-    if not validate_input(filename, 255):
-        abort(403)
+    if not validate_input(filename, 255) or any(c in filename for c in ['..', '/', '\\', ':']):
+        abort(403, description="Invalid filename")
+    filename = secure_filename(filename)
     try:
         return send_from_directory(UPLOAD_FOLDER, filename)
     except FileNotFoundError:
         abort(404)
 
-@app.route('/delete_post/<int:post_id>')
+@app.route('/delete_post/<int:post_id>', methods=['POST'])
 def delete_post(post_id):
-    """Удаление поста с проверкой прав доступа."""
     if 'user_id' not in session:
-        flash('Необходимо войти в систему!', 'error')
+        flash('Необходимо войти в систему!', 'danger')
         return redirect(url_for('login'))
-
-    if not isinstance(post_id, int) or post_id < 1:
-        flash('Недопустимый идентификатор поста!', 'error')
-        return redirect(url_for('index'))
 
     try:
         conn = get_db_connection()
-        post = conn.execute('SELECT author_id FROM posts WHERE id = ?', (post_id,)).fetchone()
+        # Получаем пост как словарь (не как sqlite3.Row)
+        post = conn.execute('SELECT * FROM posts WHERE id = ?', (post_id,)).fetchone()
+        
         if not post:
-            flash('Пост не найден!', 'error')
-            return redirect(url_for('index'))
+            flash('Пост не найден!', 'danger')
+            return jsonify({'message': 'Post not found'}), 404
 
-        # Проверка прав: только автор или админ
+        # Проверяем права доступа (используем post['author_id'] вместо post.author_id)
         if post['author_id'] != session['user_id'] and not session.get('is_admin'):
-            flash('Недостаточно прав для удаления!', 'error')
-            return redirect(url_for('index'))
+            flash('Недостаточно прав для удаления!', 'danger')
+            return jsonify({'message': 'Permission denied'}), 403
 
+        # Удаляем пост и связанные комментарии
         conn.execute('DELETE FROM posts WHERE id = ?', (post_id,))
         conn.execute('DELETE FROM comments WHERE post_id = ?', (post_id,))
         conn.commit()
         conn.close()
+        
         flash('Пост удален!', 'success')
-    except sqlite3.Error:
-        flash('Ошибка удаления поста.', 'error')
+        return jsonify({'message': 'Post deleted'})
+        
+    except sqlite3.Error as e:
+        logging.error(f'Delete post error: {e}')
+        flash(f'Ошибка удаления поста: {e}', 'danger')
+        return jsonify({'message': 'Database error'}), 500
 
+
+
+@app.errorhandler(Exception)
+def handle_error(e):
+    logging.error(f'Error: {str(e)}', exc_info=True)
+    flash('Произошла ошибка сервера.', 'danger')
     return redirect(url_for('index'))

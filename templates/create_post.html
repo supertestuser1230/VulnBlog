@@ -10,39 +10,50 @@
                 <h3><i class="fas fa-plus"></i> Создать новый пост</h3>
             </div>
             <div class="card-body">
-                <form method="POST" enctype="multipart/form-data">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <form method="POST" enctype="multipart/form-data" novalidate>
+                    {{ form.hidden_tag() }} <!-- CSRF-токен -->
                     <div class="mb-3">
                         <label for="title" class="form-label">
                             <i class="fas fa-heading"></i> Заголовок
                         </label>
-                        <input type="text" class="form-control" id="title" name="title" 
-                               placeholder="Введите заголовок поста..." required>
+                        {{ form.title(class="form-control", id="title", placeholder="Введите заголовок поста...", required=True) }}
+                        {% if form.title.errors %}
+                            {% for error in form.title.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
                     </div>
                     
                     <div class="mb-3">
                         <label for="content" class="form-label">
                             <i class="fas fa-edit"></i> Содержание
                         </label>
-                        <textarea class="form-control" id="content" name="content" rows="10" 
-                                  placeholder="Напишите содержание поста..." required></textarea>
-                        <div class="form-text">Поддерживается HTML разметка</div>
+                        {{ form.content(class="form-control", id="content", rows=10, placeholder="Напишите содержание поста...", required=True) }}
+                        <div class="form-text">Поддерживаются теги: &lt;p&gt;, &lt;br&gt;, &lt;strong&gt;, &lt;em&gt;</div>
+                        {% if form.content.errors %}
+                            {% for error in form.content.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="image" class="form-label">
-                            <i class="fas fa-image"></i> Изображение (необязательно)
-                        </label>
-                        <input type="file" class="form-control" id="image" name="image" accept="*">
-                        <div class="form-text">Поддерживаются любые файлы</div>
-                    </div>
                     
                     <div class="d-flex justify-content-between">
                         <a href="{{ url_for('index') }}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Отмена
                         </a>
-                        <button type="submit" class="btn btn-success">
-                            <i class="fas fa-save"></i> Опубликовать пост
-                        </button>
+                        {{ form.submit(class="btn btn-success") }}
                     </div>
                 </form>
             </div>
@@ -56,8 +67,8 @@
                 <ul class="mb-0">
                     <li>Используйте описательные заголовки</li>
                     <li>Разбивайте текст на абзацы для лучшей читаемости</li>
-                    <li>Добавляйте изображения для иллюстрации</li>
-                    <li>Используйте HTML теги для форматирования: &lt;b&gt;, &lt;i&gt;, &lt;u&gt;</li>
+                    <li>Добавляйте изображения для иллюстрации (PNG, JPEG, GIF)</li>
+                    <li>Используйте разрешенные теги: <code>&lt;p&gt;</code>, <code>&lt;br&gt;</code>, <code>&lt;strong&gt;</code>, <code>&lt;em&gt;</code></li>
                     <li>Проверяйте текст перед публикацией</li>
                 </ul>
             </div>

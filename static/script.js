@@ -3,23 +3,14 @@
  */
 function copyLink() {
     const url = window.location.href;
+    if (!navigator.clipboard) {
+        showNotification('Копирование в буфер обмена не поддерживается в вашем браузере!', 'danger');
+        return;
+    }
     navigator.clipboard.writeText(url).then(() => {
         showNotification('Ссылка скопирована в буфер обмена!', 'success');
     }).catch(() => {
-        // Fallback для старых браузеров
-        try {
-            const textArea = document.createElement('textarea');
-            textArea.value = url;
-            textArea.style.position = 'fixed'; // Предотвращение прокрутки
-            textArea.style.opacity = '0'; // Скрытие элемента
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            showNotification('Ссылка скопирована!', 'success');
-        } catch (err) {
-            showNotification('Ошибка копирования ссылки!', 'danger');
-        }
+        showNotification('Ошибка копирования ссылки!', 'danger');
     });
 }
 
@@ -27,32 +18,35 @@ function copyLink() {
  * Отображение уведомлений с защитой от XSS
  */
 function showNotification(message, type = 'info') {
-    // Экранирование сообщения для предотвращения XSS
     const safeMessage = DOMPurify.sanitize(message);
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
     alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
-    alertDiv.innerHTML = `
-        ${safeMessage}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Закрыть"></button>
-    `;
+
+    const messageNode = document.createTextNode(safeMessage);
+    alertDiv.appendChild(messageNode);
+
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'btn-close';
+    closeButton.setAttribute('data-bs-dismiss', 'alert');
+    closeButton.setAttribute('aria-label', 'Закрыть');
+    alertDiv.appendChild(closeButton);
 
     document.body.appendChild(alertDiv);
 
-    // Автоматическое удаление через 3 секунды
     setTimeout(() => {
         if (alertDiv.parentNode) {
             alertDiv.classList.remove('show');
-            setTimeout(() => alertDiv.remove(), 300); // Удаление после завершения анимации
+            setTimeout(() => alertDiv.remove(), 300);
         }
     }, 3000);
 }
 
 /**
- * Подтверждение удаления с использованием модального окна вместо confirm
+ * Подтверждение удаления с использованием модального окна
  */
 function confirmDelete(message = 'Вы уверены, что хотите удалить это?') {
-    // Для продакшена рекомендуется использовать модальное окно Bootstrap
     return new Promise((resolve) => {
         const modal = document.createElement('div');
         modal.className = 'modal fade';
@@ -98,23 +92,20 @@ function confirmDelete(message = 'Вы уверены, что хотите уд�
  * Инициализация событий при загрузке DOM
  */
 document.addEventListener('DOMContentLoaded', () => {
-    // Автоматическая высота текстовых полей
     const textareas = document.querySelectorAll('textarea');
     textareas.forEach(textarea => {
         textarea.addEventListener('input', function() {
             this.style.height = 'auto';
-            this.style.height = `${Math.min(this.scrollHeight, 500)}px`; // Ограничение максимальной высоты
+            this.style.height = `${Math.min(this.scrollHeight, 500)}px`;
         });
     });
 
-    // Анимация карточек
     const cards = document.querySelectorAll('.card');
     cards.forEach((card, index) => {
         card.style.animationDelay = `${index * 0.1}s`;
         card.classList.add('fade-in-up');
     });
 
-    // Активные ссылки в навигации
     const currentPath = window.location.pathname;
     const navLinks = document.querySelectorAll('.navbar-nav .nav-link');
     navLinks.forEach(link => {
@@ -123,15 +114,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Инициализация всплывающих подсказок
     const buttons = document.querySelectorAll('[data-bs-toggle="tooltip"]');
     if (buttons.length > 0 && typeof bootstrap !== 'undefined') {
         buttons.forEach(button => {
-            new bootstrap.Tooltip(button);
+            new bootstrap.TooltipREQUI
+
+            button => new bootstrap.Tooltip(button));
         });
     }
 
-    // Плавная прокрутка для якорей
     const anchorLinks = document.querySelectorAll('a[href^="#"]');
     anchorLinks.forEach(link => {
         link.addEventListener('click', (e) => {
@@ -169,8 +160,12 @@ function previewImage(input) {
         reader.onload = (e) => {
             const preview = document.getElementById('image-preview');
             if (preview) {
-                // Экранирование данных для предотвращения XSS
-                preview.innerHTML = `<img src="${DOMPurify.sanitize(e.target.result)}" class="img-fluid uploaded-file" alt="Предварительный просмотр">`;
+                preview.innerHTML = '';
+                const img = document.createElement('img');
+                img.src = DOMPurify.sanitize(e.target.result);
+                img.className = 'img-fluid uploaded-file';
+                img.alt = 'Предварительный просмотр';
+                preview.appendChild(img);
             }
         };
         reader.onerror = () => {
@@ -209,24 +204,32 @@ function setupSearchAutocomplete() {
         clearTimeout(searchTimeout);
         const query = this.value.trim();
 
-        if (query.length < 2 || query.length > 100) return;
+        if (query.length < 2 || query.length > 100) {
+            showNotification('Запрос должен быть от 2 до 100 символов!', 'warning');
+            return;
+        }
 
-        // Экранирование для предотвращения XSS
         const safeQuery = encodeURIComponent(DOMPurify.sanitize(query));
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        if (!csrfToken) {
+            showNotification('CSRF-токен отсутствует!', 'danger');
+            return;
+        }
+
         searchTimeout = setTimeout(() => {
             fetch(`/search?q=${safeQuery}`, {
                 method: 'GET',
                 headers: {
-                    'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '' // Получение CSRF-токена
+                    'X-CSRF-Token': csrfToken
                 }
             })
                 .then(response => {
-                    if (!response.ok) throw new Error('Ошибка сети');
+                    if (!response.ok) throw new Error(`Ошибка сети: ${response.status}`);
                     console.log('Поиск выполнен для:', query);
                 })
                 .catch(error => {
                     console.error('Ошибка поиска:', error);
-                    showNotification('Ошибка при выполнении поиска.', 'danger');
+                    showNotification(`Ошибка при выполнении поиска: ${error.message}`, 'danger');
                 });
         }, 300);
     });
@@ -253,7 +256,7 @@ function setupCharacterCounter() {
 
         if (count > maxLength) {
             counter.classList.add('text-danger');
-            this.value = this.value.substring(0, maxLength); // Ограничение ввода
+            this.value = this.value.substring(0, maxLength);
             showNotification(`Максимальная длина комментария ${maxLength} символов!`, 'danger');
         } else {
             counter.classList.remove('text-danger');
@@ -277,7 +280,8 @@ function setupAjaxForms() {
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
 
             if (!csrfToken) {
-                showNotification('CSRF-токен отсутствует!', 'danger');
+                showNotification('CSRF-токен отсутствует! Пожалуйста, обновите страницу.', 'danger');
+                console.error('CSRF-токен не найден');
                 return;
             }
 
@@ -289,27 +293,26 @@ function setupAjaxForms() {
                 }
             })
             .then(response => {
-                if (!response.ok) throw new Error('Ошибка сети');
+                if (!response.ok) {
+                    throw new Error(`Ошибка сети: ${response.status}`);
+                }
                 return response.json();
             })
             .then(data => {
                 showNotification(data.message || 'Форма отправлена успешно!', 'success');
-
-                // Безопасная проверка redirect
-                if (typeof data.redirect === 'string' && data.redirect.startsWith('/')) {
+                if (typeof data.redirect === 'string' && data.redirect.match(/^\/[a-zA-Z0-9\/_-]*$/)) {
                     window.location.href = data.redirect;
                 } else if (data.redirect) {
                     console.warn('Недопустимый redirect URL:', data.redirect);
                 }
             })
             .catch(error => {
-                showNotification('Ошибка при отправке формы!', 'danger');
+                showNotification(`Ошибка при отправке формы: ${error.message}`, 'danger');
                 console.error('Ошибка отправки формы:', error);
             });
         });
     });
 }
-
 
 document.addEventListener('DOMContentLoaded', setupAjaxForms);
 
@@ -323,14 +326,19 @@ function refreshAdminStats() {
         return;
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     fetch('/admin/stats', {
         method: 'GET',
         headers: {
             'X-CSRF-Token': csrfToken
-        }
+        },
+        signal: controller.signal
     })
         .then(response => {
-            if (!response.ok) throw new Error('Ошибка сети');
+            clearTimeout(timeoutId);
+            if (!response.ok) throw new Error(`Ошибка сети: ${response.status}`);
             return response.json();
         })
         .then(data => {
@@ -342,14 +350,18 @@ function refreshAdminStats() {
             if (commentsCount) commentsCount.textContent = data.comments || 0;
         })
         .catch(error => {
-            console.error('Ошибка получения статистики:', error);
-            showNotification('Ошибка обновления статистики.', 'danger');
+            if (error.name === 'AbortError') {
+                console.warn('Запрос статистики прерван по таймауту');
+            } else {
+                console.error('Ошибка получения статистики:', error);
+                showNotification(`Ошибка обновления статистики: ${error.message}`, 'danger');
+            }
         });
 }
 
 if (window.location.pathname === '/admin') {
-    refreshAdminStats(); // Начальная загрузка
-    setInterval(refreshAdminStats, 30000);
+    refreshAdminStats();
+    setInterval(refreshAdminStats, 60000);
 }
 
 /**

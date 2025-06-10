@@ -7,6 +7,13 @@ import re
 
 DATABASE = 'blog.db'
 
+def secure_database_file():
+    """Set secure permissions for the database file."""
+    try:
+        os.chmod(DATABASE, 0o600)
+    except OSError as e:
+        print(f"Failed to set database permissions: {e}")
+
 def get_db_connection():
     """Establish a secure database connection with error handling."""
     try:
@@ -60,50 +67,40 @@ def init_db():
         )
     ''')
 
-    # Generate a secure random password for admin
+    # Generate secure credentials
     try:
-        # Use a secure random password instead of a weak hardcoded one
-        admin_password = secrets.token_urlsafe(16)  # Generates a 16-character secure random string
+        admin_password = secrets.token_urlsafe(16)
         admin_password_hash = generate_password_hash(admin_password, method='pbkdf2:sha256', salt_length=16)
         conn.execute('''
-            INSERT OR IGNORE INTO users (username, email, password_hash, is_admin)
+            INSERT  INTO users (username, email, password_hash, is_admin)
             VALUES (?, ?, ?, ?)
         ''', ('admin', 'admin@blog.ru', admin_password_hash, 1))
 
-        # Generate a secure random password for test user
-        user_password = secrets.token_urlsafe(16)
-        user_password_hash = generate_password_hash(user_password, method='pbkdf2:sha256', salt_length=16)
-        conn.execute('''
-            INSERT OR IGNORE INTO users (username, email, password_hash, is_admin)
-            VALUES (?, ?, ?, ?)
-        ''', ('user', 'user@blog.ru', user_password_hash, 0))
-
-        # Insert a test post
-        conn.execute('''
-            INSERT OR IGNORE INTO posts (title, content, author_id)
-            VALUES (?, ?, ?)
-        ''', ('Welcome to the Blog!',
-              'This is the first post in our blog. Share your thoughts and ideas here.',
-              1))
+        # Save admin credentials securely
+        try:
+            with open('admin_credentials.txt', 'w', encoding='utf-8') as f:
+                os.chmod('admin_credentials.txt', 0o600)
+                f.write(f"Admin username: admin\nAdmin password: {admin_password}\n")
+        except OSError as e:
+            print(f"Failed to save admin credentials: {e}")
 
         conn.commit()
-        # Log the generated admin password securely (in a real app, this would be logged to a secure location)
-        print(f"Admin password (save this securely, it won't be shown again): {admin_password}")
     except sqlite3.IntegrityError as e:
         print(f"Initialization skipped due to existing data: {e}")
     except sqlite3.Error as e:
         print(f"Database error during initialization: {e}")
     finally:
         conn.close()
+        secure_database_file()
 
 def validate_input(input_str, max_length, pattern=None):
     """Validate input to prevent injection and ensure reasonable length."""
-    if not input_str or len(input_str) > max_length:
+    if not input_str or len(input_str.strip()) == 0 or len(input_str) > max_length:
         return False
     if pattern and not re.match(pattern, input_str):
         return False
-    # Basic sanitization to prevent SQL injection (though parameterized queries are used)
-    if any(char in input_str for char in [';', '--', '/*', '*/']):
+    dangerous_chars = [';', '--', '/*', '*/', '<', '>', '"', "'", '&']
+    if any(char in input_str for char in dangerous_chars):
         return False
     return True
 
@@ -152,7 +149,7 @@ class User:
         """Create a new user with secure password hashing and input validation."""
         if not validate_input(username, 50, r'^[\w]+$') or not validate_input(email, 100, r'^[\w\.-]+@[\w\.-]+\.\w+$'):
             return None
-        if len(password) < 8:  # Enforce minimum password length
+        if len(password) < 8:
             return None
         try:
             password_hash = generate_password_hash(password, method='pbkdf2:sha256', salt_length=16)
