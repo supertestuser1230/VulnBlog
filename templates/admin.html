@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Админ-панель - Мой Блог{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-cog"></i> Панель администратора</h1>
+    <span class="badge bg-success fs-6">Права администратора</span>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5>Пользователи</h5>
+                        <h2>{{ users|length }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5>Посты</h5>
+                        <h2>{{ posts|length }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-newspaper fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5>Комментарии</h5>
+                        <h2>{{ comments|length }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-comments fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-users"></i> Пользователи</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Имя пользователя</th>
+                                <th>Email</th>
+                                <th>Админ</th>
+                                <th>Дата регистрации</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                                <tr>
+                                    <td>{{ user.id }}</td>
+                                    <td>{{ user.username }}</td>
+                                    <td>{{ user.email }}</td>
+                                    <td>
+                                        {% if user.is_admin %}
+                                            <span class="badge bg-success">Да</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Нет</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ user.created_at }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-newspaper"></i> Последние посты</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Заголовок</th>
+                                <th>Автор</th>
+                                <th>Дата</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for post in posts[:10] %}
+                                <tr>
+                                    <td>{{ post.id }}</td>
+                                    <td>{{ post.title[:30] }}{% if post.title|length > 30 %}...{% endif %}</td>
+                                    <td>{{ post.author_id }}</td>
+                                    <td>{{ post.created_at }}</td>
+                                    <td>
+                                        <a href="{{ url_for('view_post', post_id=post.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{{ url_for('delete_post', post_id=post.id) }}" class="btn btn-sm btn-outline-danger"
+                                           onclick="return confirm('Удалить пост?')">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-comments"></i> Последние комментарии</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Пост</th>
+                                <th>Автор</th>
+                                <th>Комментарий</th>
+                                <th>Дата</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for comment in comments[:10] %}
+                                <tr>
+                                    <td>{{ comment.id }}</td>
+                                    <td>{{ comment.post_id }}</td>
+                                    <td>{{ comment.author_name }}</td>
+                                    <td>{{ comment.content[:50]|safe }}{% if comment.content|length > 50 %}...{% endif %}</td>
+                                    <td>{{ comment.created_at }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

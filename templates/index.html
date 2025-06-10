@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Главная - Мой Блог{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-newspaper"></i> Последние посты</h1>
+            {% if session.user_id %}
+                <a href="{{ url_for('create_post') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Новый пост
+                </a>
+            {% endif %}
+        </div>
+
+        {% if posts %}
+            {% for post in posts %}
+                <div class="card mb-4 post-card">
+                    {% if post.image_path %}
+                        <img src="{{ url_for('uploaded_file', filename=post.image_path) }}" class="card-img-top post-image" alt="Изображение поста">
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <a href="{{ url_for('view_post', post_id=post.id) }}" class="text-decoration-none">
+                                {{ post.title }}
+                            </a>
+                        </h5>
+                        <p class="card-text">{{ post.content[:200] }}{% if post.content|length > 200 %}...{% endif %}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                <i class="fas fa-user"></i> {{ post.username }}
+                                <i class="fas fa-calendar ms-2"></i> {{ post.created_at }}
+                            </small>
+                            <div>
+                                <a href="{{ url_for('view_post', post_id=post.id) }}" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-eye"></i> Читать далее
+                                </a>
+                                {% if session.user_id %}
+                                    <a href="{{ url_for('delete_post', post_id=post.id) }}" class="btn btn-outline-danger btn-sm" 
+                                       onclick="return confirm('Вы уверены, что хотите удалить этот пост?')">
+                                        <i class="fas fa-trash"></i> Удалить
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                <h3 class="text-muted">Пока нет постов</h3>
+                <p class="text-muted">Станьте первым, кто опубликует пост!</p>
+                {% if session.user_id %}
+                    <a href="{{ url_for('create_post') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Создать первый пост
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('register') }}" class="btn btn-primary">
+                        <i class="fas fa-user-plus"></i> Зарегистрироваться
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-info-circle"></i> О блоге</h5>
+            </div>
+            <div class="card-body">
+                <p>Добро пожаловать в наш блог! Здесь вы можете делиться своими мыслями, идеями и опытом.</p>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check text-success"></i> Создавайте посты</li>
+                    <li><i class="fas fa-check text-success"></i> Оставляйте комментарии</li>
+                    <li><i class="fas fa-check text-success"></i> Загружайте изображения</li>
+                    <li><i class="fas fa-check text-success"></i> Общайтесь с другими</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5><i class="fas fa-users"></i> Статистика</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h4 class="text-primary">{{ posts|length }}</h4>
+                        <small class="text-muted">Постов</small>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-success">∞</h4>
+                        <small class="text-muted">Пользователей</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

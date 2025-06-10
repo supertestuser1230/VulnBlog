@@ -1,0 +1,338 @@
+:root {
+    --primary-color: hsl(210 100% 50%); /* #007bff */
+    --secondary-color: hsl(210 11% 98%); /* #f8f9fa */
+    --success-color: hsl(134 61% 41%); /* #28a745 */
+    --danger-color: hsl(354 70% 54%); /* #dc3545 */
+    --warning-color: hsl(45 100% 51%); /* #ffc107 */
+    --info-color: hsl(188 78% 41%); /* #17a2b8 */
+    --light-color: hsl(210 17% 98%); /* #f8f9fa */
+    --dark-color: hsl(210 11% 21%); /* #343a40 */
+    --muted-color: hsl(210 8% 50%); /* #6c757d */
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.6;
+    color: var(--dark-color);
+    background-color: var(--secondary-color);
+}
+
+/* Навигация */
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+.navbar-brand i {
+    margin-right: 0.5rem;
+}
+
+/* Карточки постов */
+.post-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.post-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.post-image {
+    height: 250px;
+    object-fit: cover;
+    border-bottom: 1px solid hsl(210 14% 89%); /* #dee2e6 */
+}
+
+/* Карточки */
+.card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    background-color: white;
+    border-bottom: 1px solid hsl(210 14% 89%); /* #dee2e6 */
+    font-weight: 600;
+}
+
+/* Кнопки */
+.btn {
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn i {
+    margin-right: 0.5rem;
+}
+
+/* Формы */
+.form-control {
+    border-radius: 6px;
+    border: 1px solid hsl(210 14% 83%); /* #ced4da */
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem hsla(210 100% 50% / 0.25);
+}
+
+.form-label {
+    font-weight: 500;
+    color: var(--dark-color);
+}
+
+.form-label i {
+    margin-right: 0.5rem;
+    color: var(--muted-color);
+}
+
+/* Алерты */
+.alert {
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+.alert i {
+    margin-right: 0.5rem;
+}
+
+/* Footer */
+footer {
+    margin-top: auto;
+    border-top: 1px solid hsl(210 14% 89%); /* #dee2e6 */
+}
+
+/* Таблицы */
+.table {
+    background-color: white;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: var(--dark-color);
+    background-color: var(--light-color);
+}
+
+/* Бейджи */
+.badge {
+    font-weight: 500;
+}
+
+/* Специальные стили для уязвимостей */
+.vulnerability-hint {
+    background-color: hsl(45 100% 96%); /* #fffbf0 */
+    border: 1px solid hsl(45 100% 80%); /* #ffeaa7 */
+    border-radius: 6px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.code-injection {
+    font-family: 'Courier New', monospace;
+    background-color: hsl(210 17% 98%); /* #f8f9fa */
+    border: 1px solid hsl(210 14% 89%); /* #dee2e6 */
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+/* Анимации */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-up {
+    animation: fadeInUp 0.5s ease-out;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .post-image {
+        height: 200px;
+    }
+    
+    .navbar-brand {
+        font-size: 1.25rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+}
+
+/* Подсветка синтаксиса для демонстрации */
+.sql-highlight {
+    background-color: hsl(354 100% 95%); /* #ffe6e6 */
+    color: hsl(354 70% 54%); /* #dc3545 */
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+.xss-highlight {
+    background-color: hsl(45 100% 95%); /* #fff9e6 */
+    color: hsl(45 100% 25%); /* #856404 */
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+/* Стили для загруженных файлов */
+.uploaded-file {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Комментарии */
+.comment-section {
+    background-color: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+}
+
+.comment-item {
+    border-bottom: 1px solid hsl(210 14% 89%); /* #dee2e6 */
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+}
+
+.comment-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.comment-author {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.comment-content {
+    margin-top: 0.5rem;
+    line-height: 1.6;
+}
+
+.comment-date {
+    font-size: 0.875rem;
+    color: var(--muted-color);
+}
+
+/* Статистика на главной */
+.stats-card {
+    background: linear-gradient(135deg, var(--primary-color), hsl(210 100% 60%));
+    color: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.stats-number {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.stats-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+/* Поиск */
+.search-form {
+    background-color: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.search-results {
+    min-height: 300px;
+}
+
+/* Админ панель */
+.admin-header {
+    background: linear-gradient(135deg, var(--success-color), hsl(134 61% 51%));
+    color: white;
+    padding: 2rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+}
+
+.admin-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.admin-stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.admin-stat-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.admin-stat-label {
+    color: var(--muted-color);
+    font-size: 0.9rem;
+}
+
+/* Утилиты */
+.text-gradient {
+    background: linear-gradient(135deg, var(--primary-color), var(--info-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.shadow-lg {
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.border-radius-lg {
+    border-radius: 12px;
+}
+
+/* Responsive improvements */
+@media (max-width: 576px) {
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .btn-group-vertical .btn {
+        margin-bottom: 0.5rem;
+    }
+}
